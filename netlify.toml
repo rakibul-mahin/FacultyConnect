@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Netlify auto-detects the Next.js App Router (Server Components, Server
+# Actions, Route Handlers) via @netlify/plugin-nextjs — no custom redirects
+# or functions config is required beyond installing the plugin above.
+
+[build.environment]
+  NEXT_TELEMETRY_DISABLED = "1"

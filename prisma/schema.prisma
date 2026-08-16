@@ -1,0 +1,266 @@
+// Faculty Consultation & Student Booking System — Prisma schema
+// See ARCHITECTURE.md §2-3 for the reasoning behind the model split
+// (recurring RoutineEntry vs. dated ConsultationOccurrence vs. Booking).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+enum Role {
+  FACULTY
+  STUDENT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      Role
+  googleId  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  facultyProfile FacultyProfile?
+  studentProfile StudentProfile?
+
+  @@index([email])
+  @@map("users")
+}
+
+model FacultyProfile {
+  id        String   @id @default(uuid())
+  publicId  String   @unique @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName  String
+  email     String   @unique
+  initial   String
+  seat      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routineEntries          RoutineEntry[]
+  consultationOccurrences ConsultationOccurrence[]
+  qrTokens                QrToken[]
+
+  @@index([email])
+  @@index([initial])
+  @@index([publicId])
+  @@map("faculty_profiles")
+}
+
+model StudentProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  studentId String?  @unique
+  fullName  String
+  email     String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@index([email])
+  @@index([studentId])
+  @@map("student_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Recurring weekly routine template
+// ---------------------------------------------------------------------------
+
+enum Weekday {
+  SATURDAY
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+}
+
+// Fixed official time columns (§14). Ordinal value doubles as sort order.
+enum TimeSlot {
+  T_08_00
+  T_09_30
+  T_11_00
+  T_12_30
+  T_14_00
+  T_15_30
+  T_17_00
+  T_18_00
+  T_19_30
+}
+
+enum RoutineEntryType {
+  THEORY
+  LAB
+  CONSULTATION
+}
+
+model RoutineEntry {
+  id         String           @id @default(uuid())
+  facultyId  String
+  faculty    FacultyProfile   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  day        Weekday
+  startSlot  TimeSlot
+  type       RoutineEntryType
+
+  // THEORY + LAB
+  courseCode String?
+  section    String?
+  roomNumber String?
+
+  // LAB only — co-faculty initial(s), e.g. "ITSSC, RKBM"
+  coFaculty  String?
+
+  // LAB continuation bookkeeping (§17-18): a lab spans two RoutineEntry rows
+  // sharing labGroupId; isLabContinuation marks the second (auto-occupied) slot.
+  labGroupId       String?
+  isLabContinuation Boolean @default(false)
+
+  // CONSULTATION only
+  capacity   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  occurrences ConsultationOccurrence[]
+
+  @@unique([facultyId, day, startSlot])
+  @@index([facultyId, day, startSlot])
+  @@index([facultyId, type])
+  @@map("routine_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Dated occurrences (materialized lazily — see ARCHITECTURE.md §4)
+// ---------------------------------------------------------------------------
+
+enum OccurrenceStatus {
+  OPEN
+  CANCELLED
+}
+
+model ConsultationOccurrence {
+  id             String           @id @default(uuid())
+  routineEntryId String
+  routineEntry   RoutineEntry     @relation(fields: [routineEntryId], references: [id], onDelete: Cascade)
+  facultyId      String
+  faculty        FacultyProfile   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  date      DateTime // calendar date at Asia/Dhaka midnight (date-only precision)
+  startSlot TimeSlot
+  capacity  Int
+  status    OccurrenceStatus @default(OPEN)
+
+  cancelledAt     DateTime?
+  cancelReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@unique([routineEntryId, date])
+  @@index([facultyId, date])
+  @@index([date])
+  @@map("consultation_occurrences")
+}
+
+// ---------------------------------------------------------------------------
+// Bookings
+// ---------------------------------------------------------------------------
+
+enum BookingType {
+  THESIS_INTERNSHIP_PROJECT
+  COURSE
+  OTHERS
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED_BY_FACULTY
+  CANCELLED_BY_STUDENT
+}
+
+model Booking {
+  id           String                 @id @default(uuid())
+  occurrenceId String
+  occurrence   ConsultationOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type      BookingType
+  status    BookingStatus @default(CONFIRMED)
+
+  // THESIS_INTERNSHIP_PROJECT
+  groupId    String?
+  // COURSE
+  courseCode String?
+  section    String?
+  // COURSE + OTHERS (+ optional free text for thesis)
+  reason     String?
+
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendance Attendance?
+
+  @@unique([occurrenceId, studentId])
+  @@index([occurrenceId])
+  @@index([studentId])
+  @@map("bookings")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  bookingId String           @unique
+  booking   Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  status    AttendanceStatus
+  markedAt  DateTime         @default(now())
+
+  @@map("attendance")
+}
+
+// ---------------------------------------------------------------------------
+// QR
+// ---------------------------------------------------------------------------
+
+model QrToken {
+  id         String         @id @default(uuid())
+  facultyId  String
+  faculty    FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  token      String         @unique @default(uuid())
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([facultyId])
+  @@map("qr_tokens")
+}

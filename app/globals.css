@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Calendar blue — matches "Booking & Appointment App" pattern from the design system search.
+       Lightness tuned to 37% (not the searched 39%) so white button text clears WCAG AA 4.5:1. */
+    --primary: 200 98% 37%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 60% 96%;
+    --secondary-foreground: 222 40% 18%;
+
+    --muted: 220 60% 97%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 200 90% 95%;
+    --accent-foreground: 200 98% 28%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 161 94% 24%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 40% 91%;
+    --input: 220 30% 88%;
+    --ring: 200 98% 37%;
+
+    /* Routine entry-type color coding (§ color-coded routine). Each has a
+       full-saturation value (text/border/dot) and a light tint (cell/badge
+       background) so the same three hues read consistently everywhere the
+       routine renders — dashboard, editor, booking grid, mobile lists.
+       Lightness values are chosen (and verified) to clear WCAG AA 4.5:1
+       against their own tint background, not just picked for looks. */
+    --theory: 221 83% 53%;
+    --theory-bg: 214 100% 97%;
+    --lab: 32 95% 35%;
+    --lab-bg: 43 100% 96%;
+    --consultation: 161 94% 26%;
+    --consultation-bg: 152 81% 96%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 224 28% 7%;
+    --foreground: 220 20% 94%;
+
+    --card: 224 24% 10%;
+    --card-foreground: 220 20% 94%;
+
+    --popover: 224 24% 10%;
+    --popover-foreground: 220 20% 94%;
+
+    --primary: 198 93% 60%;
+    --primary-foreground: 224 28% 7%;
+
+    --secondary: 224 18% 15%;
+    --secondary-foreground: 220 20% 94%;
+
+    --muted: 224 18% 15%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 200 60% 18%;
+    --accent-foreground: 198 93% 80%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 50% 45%;
+    --success-foreground: 224 28% 7%;
+
+    --border: 224 16% 18%;
+    --input: 224 16% 20%;
+    --ring: 198 93% 60%;
+
+    --theory: 217 91% 68%;
+    --theory-bg: 221 39% 16%;
+    --lab: 38 92% 62%;
+    --lab-bg: 32 39% 15%;
+    --consultation: 152 60% 55%;
+    --consultation-bg: 160 39% 14%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
