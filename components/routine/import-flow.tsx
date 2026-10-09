@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertTriangle, ArrowLeft, Check, ClipboardPaste, Pencil, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ClipboardPaste, FileSpreadsheet, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,23 +20,29 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { WEEKDAY_LABELS, TIME_SLOT_LABELS, type WeekdayValue, type TimeSlotValue } from '@/lib/constants';
-import { parseClipboardAction, buildDiffAction, confirmImportAction } from '@/app/(faculty-app)/faculty/routine/actions';
+import {
+  parseClipboardAction,
+  parseTableAction,
+  buildDiffAction,
+  confirmImportAction,
+  type ActionResult,
+} from '@/app/(faculty-app)/faculty/routine/actions';
+import { readSpreadsheet } from '@/lib/parser/read-spreadsheet';
 import type { ParsedCell } from '@/lib/parser/routine-parser';
 import type { DiffRow } from '@/lib/routine/import';
 
 type Step = 'paste' | 'preview' | 'done';
 
-// Mirrors real Google Sheets clipboard TSV: a multi-line cell (course +
-// room, on separate lines within the cell) is copied as one double-quoted
-// field containing a literal line break.
+// The official sheet as faculty copy it: time header, day labels, "—" for
+// empty slots, each cell's lines following one another.
 const SAMPLE = [
-  ['"CSE427-03 (LAB)\nITSSC,RKBM\n09F-27L"', '"CSE427-03 (LAB)\nITSSC,RKBM\n09F-27L"', 'Consultation', 'Consultation', '"CSE110-13\n09H-35C"', '"CSE110-12\n09H-35C"', '', '', ''].join('\t'),
-  Array(9).fill('').join('\t'),
-  Array(9).fill('').join('\t'),
-  Array(9).fill('').join('\t'),
-  Array(9).fill('').join('\t'),
-  Array(9).fill('').join('\t'),
-  Array(9).fill('').join('\t'),
+  'Day \\ Time\t8:00 AM\n8:00 - 9:20\t9:30 AM\n9:30 - 10:50\t11:00 AM\n11:00 - 12:20\t12:30 PM\n12:30 - 1:50\t2:00 PM\n2:00 - 3:20\t3:30 PM\n3:30 - 4:50\t6:00 PM\n6:00 - 7:20',
+  'SAT\t\n—\n—\n—\n—\n—\n—\n—',
+  'SUN\t\n—\n—\n—\n—\nCSE110-13\n09H-35C\nCSE110-12\n09H-35C\n—',
+  'MON\t\nCSE427-03 (Lab) (ITSSC,RKBM)\n09F-27L\nCSE427-03 (Lab) (ITSSC,RKBM)\n09F-27L\n—\n—\n—\n—\n—',
+  'TUE\t\n—\n—\n—\n—\nCSE110-13\n09H-35C\nCSE110-12\n09H-35C\n—',
+  'WED\t\nCSE427-03 (Lab) (ITSSC,RKBM)\n09F-27L\nCSE427-03 (Lab) (ITSSC,RKBM)\n09F-27L\n—\n—\n—\n—\n—',
+  'THU\t\n—\n—\n—\n—\n—\n—\n—',
 ].join('\n');
 
 export function ImportFlow() {
@@ -49,26 +55,44 @@ export function ImportFlow() {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<ParsedCell | null>(null);
 
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const showPreview = async (res: ActionResult<{ cells: ParsedCell[]; errors: string[] }>) => {
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    if (res.data.errors.length > 0) {
+      setStructuralErrors(res.data.errors);
+      return;
+    }
+    setStructuralErrors([]);
+    setCells(res.data.cells);
+    const diffRes = await buildDiffAction(res.data.cells);
+    if (!diffRes.ok) {
+      toast.error(diffRes.error);
+      return;
+    }
+    setDiff(diffRes.data);
+    setStep('preview');
+  };
+
   const runParse = () => {
     startTransition(async () => {
-      const res = await parseClipboardAction(raw);
-      if (!res.ok) {
-        toast.error(res.error);
+      await showPreview(await parseClipboardAction(raw));
+    });
+  };
+
+  const uploadFile = (file: File) => {
+    startTransition(async () => {
+      let rows: string[][];
+      try {
+        rows = await readSpreadsheet(file);
+      } catch {
+        toast.error('Could not read this file. Upload an Excel file (.xlsx or .xls).');
         return;
       }
-      if (res.data.errors.length > 0) {
-        setStructuralErrors(res.data.errors);
-        return;
-      }
-      setStructuralErrors([]);
-      setCells(res.data.cells);
-      const diffRes = await buildDiffAction(res.data.cells);
-      if (!diffRes.ok) {
-        toast.error(diffRes.error);
-        return;
-      }
-      setDiff(diffRes.data);
-      setStep('preview');
+      await showPreview(await parseTableAction(rows));
     });
   };
 
@@ -114,11 +138,12 @@ export function ImportFlow() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardPaste className="h-5 w-5" />
-                  Step 1–2: Copy from Google Sheets, then paste here
+                  Step 1–2: Paste your routine or upload an Excel file
                 </CardTitle>
                 <CardDescription>
-                  In your department&apos;s Google Sheet, select the full Saturday–Friday × 8:00 AM–7:30 PM range, copy it
-                  (Ctrl/Cmd+C), then paste it below.
+                  Copy your routine table from Google Sheets, including the time header row and the day column, and paste
+                  it below. Or upload the sheet as an Excel file. Days and times missing from the sheet are left as they
+                  are.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -139,6 +164,21 @@ export function ImportFlow() {
                   <Button onClick={runParse} disabled={!raw.trim()} loading={pending}>
                     Preview import
                   </Button>
+                  <Button variant="outline" onClick={() => fileInput.current?.click()} disabled={pending}>
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Upload Excel file
+                  </Button>
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = ''; // allow re-selecting the same file after fixing it
+                      if (file) uploadFile(file);
+                    }}
+                  />
                   <Button variant="ghost" size="sm" onClick={() => setRaw(SAMPLE)}>
                     Try a sample paste
                   </Button>

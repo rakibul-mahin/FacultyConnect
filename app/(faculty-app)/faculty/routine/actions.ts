@@ -5,7 +5,8 @@ import { requireFacultySession } from '@/lib/auth/session';
 import { routineEntryInputSchema } from '@/lib/validation/routine';
 import { upsertEntry, clearRoutine, RoutineError } from '@/lib/routine/service';
 import { prisma } from '@/lib/db/prisma';
-import { parseRoutineClipboard, type ParsedCell } from '@/lib/parser/routine-parser';
+import { z } from 'zod';
+import { parseRoutineClipboard, parseRoutineTable, type ParsedCell } from '@/lib/parser/routine-parser';
 import { buildImportDiff, applyRoutineImport, type DiffRow } from '@/lib/routine/import';
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -46,6 +47,26 @@ export async function parseClipboardAction(raw: string): Promise<ActionResult<{ 
   } catch (err) {
     console.error(err);
     return { ok: false, error: 'Could not parse the pasted content.' };
+  }
+}
+
+// Rows read client-side from an uploaded Excel file. Bounded so a huge or
+// hostile sheet can't be pushed through the parser.
+const uploadedTableSchema = z.array(z.array(z.string().max(500)).max(40)).max(100);
+
+export async function parseTableAction(
+  rawRows: unknown
+): Promise<ActionResult<{ cells: ParsedCell[]; errors: string[] }>> {
+  try {
+    await requireFacultySession();
+    const rows = uploadedTableSchema.safeParse(rawRows);
+    if (!rows.success) {
+      return { ok: false, error: 'This file is too large to be a routine sheet. Upload only the routine table.' };
+    }
+    return { ok: true, data: parseRoutineTable(rows.data) };
+  } catch (err) {
+    console.error(err);
+    return { ok: false, error: 'Could not read the uploaded file.' };
   }
 }
 

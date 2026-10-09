@@ -7,9 +7,9 @@ export default async function ImportRoutinePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Import routine from Google Sheets</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Import routine</h1>
         <p className="text-sm text-muted-foreground">
-          No screenshots, no OCR — just copy the cell values from your department&apos;s official sheet and paste them here.
+          Paste your routine from Google Sheets or upload it as an Excel file. You&apos;ll review every change before it&apos;s saved.
         </p>
       </div>
       <ImportFlow />

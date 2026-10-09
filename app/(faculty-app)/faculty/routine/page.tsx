@@ -22,7 +22,7 @@ export default async function FacultyRoutinePage() {
           <Button asChild variant="outline">
             <Link href="/faculty/routine/import">
               <Upload className="h-4 w-4" />
-              Import from Google Sheets
+              Import routine
             </Link>
           </Button>
         </div>
