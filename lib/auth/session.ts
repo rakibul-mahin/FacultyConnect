@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
@@ -42,6 +43,13 @@ export async function requireStudentPage() {
   if (session.user.role !== 'STUDENT' || !session.user.studentProfileId) redirect('/login');
   return session;
 }
+
+/**
+ * Profile lookups shared by a layout and its page within one request — React
+ * cache() dedupes them so the row is fetched from the database only once.
+ */
+export const getFacultyProfileById = cache((id: string) => prisma.facultyProfile.findUnique({ where: { id } }));
+export const getStudentProfileById = cache((id: string) => prisma.studentProfile.findUnique({ where: { id } }));
 
 /** Loads the full faculty profile row for the authenticated faculty session. */
 export async function currentFacultyProfile() {

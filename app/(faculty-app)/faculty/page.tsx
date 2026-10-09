@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireFacultyPage } from '@/lib/auth/session';
+import { notFound } from 'next/navigation';
+import { getFacultyProfileById, requireFacultyPage } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
 import { ensureOccurrences } from '@/lib/booking/occurrences';
 import { getFacultyUpcomingOccurrences, getFacultyAttendanceStats } from '@/lib/booking/queries';
@@ -28,18 +29,22 @@ export default async function FacultyDashboardPage() {
   const session = await requireFacultyPage();
   const facultyId = session.user.facultyProfileId!;
 
-  const profile = await prisma.facultyProfile.findUniqueOrThrow({ where: { id: facultyId } });
-  await ensureOccurrences(facultyId);
-
   const today = dhakaToday();
   const todayWeekday = dhakaWeekdayOf(today);
 
-  const [todayEntries, weekEntries, upcoming, stats] = await Promise.all([
-    prisma.routineEntry.findMany({ where: { facultyId, day: todayWeekday as never }, orderBy: { startSlot: 'asc' } }),
+  // Every query that doesn't depend on another runs in one parallel round.
+  // Upcoming occurrences need ensureOccurrences to have run first, which in
+  // turn reuses the routine entries loaded here instead of re-querying them.
+  const [profile, weekEntries, stats] = await Promise.all([
+    getFacultyProfileById(facultyId),
     prisma.routineEntry.findMany({ where: { facultyId }, orderBy: [{ day: 'asc' }, { startSlot: 'asc' }] }),
-    getFacultyUpcomingOccurrences(facultyId, 5),
     getFacultyAttendanceStats(facultyId),
   ]);
+  if (!profile) notFound();
+
+  await ensureOccurrences(facultyId, weekEntries);
+  const upcoming = await getFacultyUpcomingOccurrences(facultyId, 5);
+  const todayEntries = weekEntries.filter((e) => e.day === todayWeekday);
 
   const upcomingBookingCount = upcoming.reduce((sum, o) => sum + o.bookings.length, 0);
   const profileIncomplete = !profile.initial || !profile.seat;

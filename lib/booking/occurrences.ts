@@ -1,5 +1,6 @@
 import 'server-only';
 import { prisma } from '@/lib/db/prisma';
+import type { Prisma, RoutineEntry } from '@prisma/client';
 import { addDays } from 'date-fns';
 import { dhakaTomorrow, dhakaWeekdayOf } from '@/lib/timezone';
 
@@ -28,61 +29,50 @@ function bookingWindow() {
  * forward by exactly one day on every call, "tomorrow" is always captured
  * before it becomes "today", so nothing is ever missed.
  */
-export async function ensureOccurrences(facultyId: string) {
-  const consultationEntries = await prisma.routineEntry.findMany({
-    where: { facultyId, type: 'CONSULTATION' },
-  });
+export async function ensureOccurrences(
+  facultyId: string,
+  /** Pass the faculty's routine entries when the caller already loaded them, to skip a round trip. */
+  routineEntries?: RoutineEntry[]
+) {
+  const consultationEntries = (
+    routineEntries ?? (await prisma.routineEntry.findMany({ where: { facultyId, type: 'CONSULTATION' } }))
+  ).filter((entry) => entry.type === 'CONSULTATION');
 
   const { start, end } = bookingWindow();
 
-  if (consultationEntries.length > 0) {
-    const dates: Date[] = [];
-    for (let i = 0; i < BOOKING_WINDOW_DAYS; i++) dates.push(addDays(start, i));
-
-    const entriesByDay = new Map<string, typeof consultationEntries>();
+  const rows: Prisma.ConsultationOccurrenceCreateManyInput[] = [];
+  for (let i = 0; i < BOOKING_WINDOW_DAYS; i++) {
+    const date = addDays(start, i);
+    const weekday = dhakaWeekdayOf(date);
     for (const entry of consultationEntries) {
-      const arr = entriesByDay.get(entry.day) ?? [];
-      arr.push(entry);
-      entriesByDay.set(entry.day, arr);
-    }
-
-    const ops = [];
-    for (const date of dates) {
-      const weekday = dhakaWeekdayOf(date);
-      const entries = entriesByDay.get(weekday);
-      if (!entries) continue;
-      for (const entry of entries) {
-        ops.push(
-          prisma.consultationOccurrence.upsert({
-            where: { routineEntryId_date: { routineEntryId: entry.id, date } },
-            update: {},
-            create: {
-              routineEntryId: entry.id,
-              facultyId,
-              date,
-              startSlot: entry.startSlot,
-              capacity: entry.capacity ?? 1,
-            },
-          })
-        );
-      }
-    }
-
-    if (ops.length > 0) {
-      await prisma.$transaction(ops);
+      if (entry.day !== weekday) continue;
+      rows.push({
+        routineEntryId: entry.id,
+        facultyId,
+        date,
+        startSlot: entry.startSlot,
+        capacity: entry.capacity ?? 1,
+      });
     }
   }
 
-  // Self-healing: remove any previously over-generated far-future
-  // occurrences beyond the near-term window that nobody has booked, so a
-  // narrower window takes effect immediately instead of only for newly
-  // created rows. Never touches occurrences with a confirmed booking.
-  await prisma.consultationOccurrence.deleteMany({
-    where: {
-      facultyId,
-      status: 'OPEN',
-      date: { gt: end },
-      bookings: { none: { status: 'CONFIRMED' } },
-    },
-  });
+  // One INSERT for the whole window; rows that already exist hit the
+  // (routineEntryId, date) unique constraint and are skipped, leaving them
+  // untouched. Runs alongside the cleanup below — the two never touch the
+  // same rows (inside vs. beyond the window).
+  await Promise.all([
+    rows.length > 0 ? prisma.consultationOccurrence.createMany({ data: rows, skipDuplicates: true }) : null,
+    // Self-healing: remove any previously over-generated far-future
+    // occurrences beyond the near-term window that nobody has booked, so a
+    // narrower window takes effect immediately instead of only for newly
+    // created rows. Never touches occurrences with a confirmed booking.
+    prisma.consultationOccurrence.deleteMany({
+      where: {
+        facultyId,
+        status: 'OPEN',
+        date: { gt: end },
+        bookings: { none: { status: 'CONFIRMED' } },
+      },
+    }),
+  ]);
 }

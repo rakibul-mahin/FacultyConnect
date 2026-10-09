@@ -8,12 +8,12 @@ import { motion, type Variants } from 'motion/react';
 // instead of popping in instantly.
 const container: Variants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.06 } },
+  show: { transition: { staggerChildren: 0.025 } },
 };
 
 const item: Variants = {
-  hidden: { opacity: 0, scale: 0.94, y: 12 },
-  show: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.35, ease: [0.34, 1.56, 0.64, 1] } },
+  hidden: { opacity: 0, scale: 0.97, y: 6 },
+  show: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: [0.34, 1.56, 0.64, 1] } },
 };
 
 interface StaggerProps {

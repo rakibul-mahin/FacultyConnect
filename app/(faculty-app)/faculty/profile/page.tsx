@@ -1,12 +1,13 @@
-import { requireFacultyPage } from '@/lib/auth/session';
-import { prisma } from '@/lib/db/prisma';
+import { notFound } from 'next/navigation';
+import { getFacultyProfileById, requireFacultyPage } from '@/lib/auth/session';
 import { FacultyProfileForm } from '@/components/profile/faculty-profile-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { FadeIn } from '@/components/motion/fade-in';
 
 export default async function FacultyProfilePage() {
   const session = await requireFacultyPage();
-  const profile = await prisma.facultyProfile.findUniqueOrThrow({ where: { id: session.user.facultyProfileId! } });
+  const profile = await getFacultyProfileById(session.user.facultyProfileId!);
+  if (!profile) notFound();
 
   return (
     <FadeIn className="max-w-lg space-y-6">

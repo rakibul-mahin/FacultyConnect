@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { requireStudentPage } from '@/lib/auth/session';
-import { prisma } from '@/lib/db/prisma';
+import { notFound } from 'next/navigation';
+import { getStudentProfileById, requireStudentPage } from '@/lib/auth/session';
 import { getStudentBookings } from '@/lib/booking/queries';
 import { formatDhakaDate, dhakaToday } from '@/lib/timezone';
 import { TIME_SLOT_LABELS, BOOKING_TYPE_LABELS, type TimeSlotValue } from '@/lib/constants';
@@ -13,8 +13,11 @@ import { StaggerList, StaggerItem } from '@/components/motion/stagger-list';
 
 export default async function StudentDashboardPage() {
   const session = await requireStudentPage();
-  const profile = await prisma.studentProfile.findUniqueOrThrow({ where: { id: session.user.studentProfileId! } });
-  const upcomingRaw = await getStudentBookings(session.user.studentProfileId!, { upcoming: true });
+  const [profile, upcomingRaw] = await Promise.all([
+    getStudentProfileById(session.user.studentProfileId!),
+    getStudentBookings(session.user.studentProfileId!, { upcoming: true }),
+  ]);
+  if (!profile) notFound();
   // Self-cancelled bookings aren't real commitments anymore — leave them out
   // of this summary widget (they still show, clearly marked, on the full
   // My Bookings page for history's sake).

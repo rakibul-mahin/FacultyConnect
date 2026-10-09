@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db/prisma';
-import { getOrCreateActiveToken } from '@/lib/qr/service';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,13 +24,7 @@ export default async function StudentSearchPage({ searchParams }: { searchParams
       })
     : await prisma.facultyProfile.findMany({ orderBy: { fullName: 'asc' }, take: 30 });
 
-  // Resolve each faculty's current active QR token so search results link via the same stable route.
-  const links = await Promise.all(
-    faculty.map(async (f) => {
-      const token = await getOrCreateActiveToken(f.id);
-      return { faculty: f, href: `/faculty/${f.publicId}`, token: token.token };
-    })
-  );
+  const links = faculty.map((f) => ({ faculty: f, href: `/faculty/${f.publicId}` }));
 
   return (
     <div className="space-y-6">
