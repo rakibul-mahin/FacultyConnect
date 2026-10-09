@@ -57,6 +57,15 @@ export async function clearSlot(facultyId: string, day: string, startSlot: strin
   }
 }
 
+/**
+ * Removes every routine entry for a faculty so they can start fresh. Like
+ * clearSlot, this cascades to consultation occurrences and their bookings.
+ */
+export async function clearRoutine(facultyId: string): Promise<number> {
+  const { count } = await prisma.routineEntry.deleteMany({ where: { facultyId } });
+  return count;
+}
+
 export async function upsertEntry(facultyId: string, input: RoutineEntryInput) {
   if (input.type === 'EMPTY') {
     await clearSlot(facultyId, input.day, input.startSlot);

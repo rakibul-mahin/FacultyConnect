@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 import { RoutineEditor } from '@/components/routine/routine-editor';
+import { ClearRoutineButton } from '@/components/routine/clear-routine-button';
 
 export default async function FacultyRoutinePage() {
   const session = await requireFacultyPage();
@@ -16,12 +17,15 @@ export default async function FacultyRoutinePage() {
           <h1 className="text-2xl font-semibold tracking-tight">Weekly routine</h1>
           <p className="text-sm text-muted-foreground">Click any slot to add theory, a lab, or a consultation.</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/faculty/routine/import">
-            <Upload className="h-4 w-4" />
-            Import from Google Sheets
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ClearRoutineButton entryCount={entries.length} />
+          <Button asChild variant="outline">
+            <Link href="/faculty/routine/import">
+              <Upload className="h-4 w-4" />
+              Import from Google Sheets
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <RoutineEditor

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireFacultySession } from '@/lib/auth/session';
 import { routineEntryInputSchema } from '@/lib/validation/routine';
-import { upsertEntry, RoutineError } from '@/lib/routine/service';
+import { upsertEntry, clearRoutine, RoutineError } from '@/lib/routine/service';
 import { prisma } from '@/lib/db/prisma';
 import { parseRoutineClipboard, type ParsedCell } from '@/lib/parser/routine-parser';
 import { buildImportDiff, applyRoutineImport, type DiffRow } from '@/lib/routine/import';
@@ -22,6 +22,19 @@ export async function saveRoutineEntry(rawInput: unknown): Promise<ActionResult>
     if (err instanceof RoutineError) return { ok: false, error: err.message };
     console.error(err);
     return { ok: false, error: 'Something went wrong saving this slot.' };
+  }
+}
+
+export async function clearRoutineAction(): Promise<ActionResult<{ clearedCount: number }>> {
+  try {
+    const session = await requireFacultySession();
+    const clearedCount = await clearRoutine(session.user.facultyProfileId!);
+    revalidatePath('/faculty/routine');
+    revalidatePath('/faculty');
+    return { ok: true, data: { clearedCount } };
+  } catch (err) {
+    console.error(err);
+    return { ok: false, error: 'Could not clear your routine.' };
   }
 }
 
