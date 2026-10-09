@@ -17,7 +17,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { TIME_SLOT_LABELS, WEEKDAY_LABELS, LAB_VALID_START_SLOTS, type TimeSlotValue, type WeekdayValue } from '@/lib/constants';
+import {
+  TIME_SLOT_LABELS,
+  WEEKDAY_LABELS,
+  LAB_VALID_START_SLOTS,
+  THEORY_PAIRED_DAY,
+  type TimeSlotValue,
+  type WeekdayValue,
+} from '@/lib/constants';
 import { saveRoutineEntry } from '@/app/(faculty-app)/faculty/routine/actions';
 import type { RoutineCellData } from '@/components/routine/routine-editor';
 
@@ -92,7 +99,9 @@ export function EntryEditorDialog({
             </p>
           )}
 
-          {type === 'EMPTY' && <ClearForm day={day} startSlot={startSlot} onOpenChange={onOpenChange} onSaved={onSaved} />}
+          {type === 'EMPTY' && (
+            <ClearForm day={day} startSlot={startSlot} existing={existing} onOpenChange={onOpenChange} onSaved={onSaved} />
+          )}
           {type === 'THEORY' && (
             <TheoryForm day={day} startSlot={startSlot} existing={existing} onOpenChange={onOpenChange} onSaved={onSaved} />
           )}
@@ -111,11 +120,13 @@ export function EntryEditorDialog({
 function ClearForm({
   day,
   startSlot,
+  existing,
   onOpenChange,
   onSaved,
 }: {
   day: WeekdayValue;
   startSlot: TimeSlotValue;
+  existing: RoutineCellData | null;
   onOpenChange: (v: boolean) => void;
   onSaved: () => void;
 }) {
@@ -132,12 +143,20 @@ function ClearForm({
       }
     });
   };
+  const partnerDay = existing?.type === 'THEORY' ? THEORY_PAIRED_DAY[day] : undefined;
   return (
-    <DialogFooter>
-      <Button onClick={submit} loading={pending} variant="destructive">
-        Clear this slot
-      </Button>
-    </DialogFooter>
+    <div className="space-y-3">
+      {partnerDay && (
+        <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+          If {WEEKDAY_LABELS[partnerDay]} {TIME_SLOT_LABELS[startSlot]} has the same theory class, it will be cleared too.
+        </p>
+      )}
+      <DialogFooter>
+        <Button onClick={submit} loading={pending} variant="destructive">
+          Clear this slot
+        </Button>
+      </DialogFooter>
+    </div>
   );
 }
 
@@ -163,12 +182,17 @@ function TheoryForm({
     },
   });
   const [pending, startTransition] = useTransition();
+  const partnerDay = THEORY_PAIRED_DAY[day];
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
       const res = await saveRoutineEntry({ day, startSlot, type: 'THEORY', ...values });
       if (res.ok) {
-        toast.success('Theory class saved.');
+        toast.success(
+          partnerDay
+            ? `Theory class saved on ${WEEKDAY_LABELS[day]} and ${WEEKDAY_LABELS[partnerDay]}.`
+            : 'Theory class saved.'
+        );
         onOpenChange(false);
         onSaved();
       } else {
@@ -179,6 +203,11 @@ function TheoryForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
+      {partnerDay && (
+        <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+          This class will also be saved on {WEEKDAY_LABELS[partnerDay]} at {TIME_SLOT_LABELS[startSlot]}.
+        </p>
+      )}
       <Field label="Course code" error={form.formState.errors.courseCode?.message}>
         <Input placeholder="CSE110" {...form.register('courseCode')} />
       </Field>

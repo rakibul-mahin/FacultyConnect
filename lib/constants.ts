@@ -81,6 +81,18 @@ export const LAB_CONTINUATION_SLOT: Partial<Record<TimeSlotValue, TimeSlotValue>
   T_14_00: 'T_15_30',
 };
 
+// BRAC pairs days that share the same theory classes at the same time and
+// room. Theory entries are mirrored onto the paired day; labs and
+// consultations are not. Friday has no pair.
+export const THEORY_PAIRED_DAY: Partial<Record<WeekdayValue, WeekdayValue>> = {
+  SUNDAY: 'TUESDAY',
+  TUESDAY: 'SUNDAY',
+  MONDAY: 'WEDNESDAY',
+  WEDNESDAY: 'MONDAY',
+  THURSDAY: 'SATURDAY',
+  SATURDAY: 'THURSDAY',
+};
+
 export function slotIndex(slot: TimeSlotValue): number {
   return TIME_SLOTS.indexOf(slot);
 }
