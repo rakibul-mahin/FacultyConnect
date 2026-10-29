@@ -1,7 +1,8 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { CalendarClock, GraduationCap, ShieldCheck, Users2 } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Users2 } from 'lucide-react';
+import { BRAND_DEVELOPER, Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { signInWithGoogle } from '@/app/login/actions';
@@ -18,10 +19,8 @@ export function LoginView({ googleConfigured, callbackUrl }: { googleConfigured:
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex items-center gap-2 text-lg font-semibold"
         >
-          <CalendarClock className="h-6 w-6" />
-          FacultyConnect
+          <Logo markClassName="h-9 w-9" textClassName="text-2xl" />
         </motion.div>
 
         <motion.div
@@ -31,11 +30,10 @@ export function LoginView({ googleConfigured, callbackUrl }: { googleConfigured:
           className="space-y-6"
         >
           <h1 className="max-w-md text-4xl font-semibold leading-tight tracking-tight">
-            Book faculty consultation time in seconds, not emails.
+            Good questions deserve a conversation.
           </h1>
           <p className="max-w-md text-background/70">
-            Faculty maintain one weekly routine. Students search, book, and show up — no spreadsheets,
-            no back-and-forth.
+            Book time with your faculty for course questions, thesis guidance, project discussions, or whatever you&apos;re working through.
           </p>
           <div className="grid max-w-md grid-cols-1 gap-3 pt-4 sm:grid-cols-3">
             <Feature icon={Users2} label="Live capacity" />
@@ -44,7 +42,7 @@ export function LoginView({ googleConfigured, callbackUrl }: { googleConfigured:
           </div>
         </motion.div>
 
-        <p className="text-xs text-background/50">Developed and Maintained by· Mohammad Rakibul Hasan Mahin</p>
+        <p className="text-xs text-background/50">Developed and maintained by {BRAND_DEVELOPER}</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-10">
@@ -55,9 +53,8 @@ export function LoginView({ googleConfigured, callbackUrl }: { googleConfigured:
           className="w-full max-w-sm space-y-8"
         >
           <div className="space-y-2 text-center lg:text-left">
-            <div className="flex items-center justify-center gap-2 text-lg font-semibold lg:hidden">
-              <CalendarClock className="h-5 w-5" />
-              FacultyConnect
+            <div className="flex justify-center lg:hidden">
+              <Logo markClassName="h-8 w-8" textClassName="text-xl" />
             </div>
             <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
             <p className="text-sm text-muted-foreground">

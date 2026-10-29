@@ -8,5 +8,6 @@ export interface OccurrenceForBooking {
   isPast: boolean;
   isBookable: boolean;
   status: string;
+  cancelReason: string | null;
   myBookingPosition: number | null;
 }

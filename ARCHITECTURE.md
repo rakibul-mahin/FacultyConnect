@@ -1,4 +1,4 @@
-# Architecture — FacultyConnect (Faculty Consultation & Student Booking System)
+# Architecture — Consultly (Faculty Consultation & Student Booking System)
 
 ## 1. System Overview
 
@@ -192,6 +192,7 @@ browser clipboard contains TSV (`\t` between columns, `\n` between rows). `lib/p
 ## 13. What Is Intentionally Not Built
 
 Per §68/§55/§54: no admin role, no chat/messaging, no payments, no AI, no email delivery, no
-Redis/queues, no external calendar sync, no paid cron. The notification system is architected as a
-single extension point (`lib/notify.ts` — currently a no-op logger) so email could be bolted on later
-without touching booking/routine logic.
+Redis/queues, no external calendar sync, no paid cron. Students get in-app notifications (the
+`notifications` table, written in the same transaction as a faculty cancellation and shown in the
+student bell and dashboard); `lib/notify.ts` stays the single extension point where email could be
+bolted on later without touching booking/routine logic.

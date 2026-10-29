@@ -5,7 +5,7 @@ import { requireFacultySession } from '@/lib/auth/session';
 import * as bookingService from '@/lib/booking/service';
 import { BookingError } from '@/lib/booking/errors';
 import { markAttendanceSchema } from '@/lib/validation/booking';
-import { cancelOccurrenceSchema, cancelDaySchema } from '@/lib/validation/routine';
+import { cancelOccurrenceSchema, cancelDaySchema, removeStudentSchema } from '@/lib/validation/routine';
 import { parseDhakaDateString } from '@/lib/timezone';
 import type { ActionResult } from '@/app/(faculty-app)/faculty/routine/actions';
 
@@ -36,6 +36,21 @@ export async function cancelDayAction(rawInput: unknown): Promise<ActionResult<{
     if (err instanceof BookingError) return { ok: false, error: err.message };
     console.error(err);
     return { ok: false, error: 'Could not cancel this day.' };
+  }
+}
+
+export async function removeStudentAction(rawInput: unknown): Promise<ActionResult> {
+  try {
+    const session = await requireFacultySession();
+    const input = removeStudentSchema.parse(rawInput);
+    await bookingService.cancelBookingByFaculty(session.user.facultyProfileId!, input.bookingId, input.reason);
+    revalidatePath('/faculty/bookings');
+    revalidatePath('/faculty');
+    return { ok: true, data: undefined };
+  } catch (err) {
+    if (err instanceof BookingError) return { ok: false, error: err.message };
+    console.error(err);
+    return { ok: false, error: 'Could not remove this student.' };
   }
 }
 

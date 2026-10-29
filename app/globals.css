@@ -118,3 +118,30 @@
 .scrollbar-thin {
   scrollbar-width: thin;
 }
+
+/* QR page "Print poster": print only the poster, centred on one A4 page. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  body:has(#qr-poster) * {
+    visibility: hidden;
+  }
+  body:has(#qr-poster) #qr-poster,
+  body:has(#qr-poster) #qr-poster * {
+    visibility: visible;
+  }
+  body:has(#qr-poster) #qr-poster {
+    position: absolute;
+    inset: 0 0 auto 0;
+    margin: 0 auto;
+    width: 150mm;
+    zoom: 1.35;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body:has(#qr-poster) {
+    background: #fff !important;
+  }
+}

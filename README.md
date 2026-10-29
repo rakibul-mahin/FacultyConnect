@@ -1,4 +1,4 @@
-# FacultyConnect
+# Consultly
 
 *Faculty Consultation & Student Booking System*
 
@@ -172,9 +172,9 @@ acceptance checklist:
   single-transaction database operations well under that.
 - **No background jobs**: consultation occurrences are generated lazily/idempotently on page load
   instead of via a scheduled job, specifically to avoid needing a paid cron service (ARCHITECTURE.md §4).
-- **No email**: booking confirmations are in-app only in this version (§55 of the brief) — see
-  `lib/notify.ts` for the single extension point where email could be added later without touching
-  booking/routine logic.
+- **No email**: notifications are in-app only in this version (§55 of the brief): students see faculty
+  cancellations in the bell and on their dashboard. `lib/notify.ts` is the single extension point
+  where email could be added later without touching booking/routine logic.
 - **Google OAuth verification**: if your Google Cloud OAuth consent screen is in "Testing" mode, only
   explicitly added test users can sign in: add real faculty/student test accounts, or publish the app
   (may require Google's verification review for some scopes, though this app only requests basic

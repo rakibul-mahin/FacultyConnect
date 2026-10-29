@@ -8,7 +8,7 @@ import { ThemeProvider } from '@/components/theme/theme-provider';
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta' });
 
 export const metadata: Metadata = {
-  title: 'FacultyConnect — Faculty Booking',
+  title: 'Consultly — Faculty consultation booking',
   description: 'Departmental faculty consultation routine & student booking system.',
   // Browser auto-translate (common on phones set to Bangla) rewrites the
   // page's text nodes behind React's back, which crashes the app on its next

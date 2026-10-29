@@ -3,7 +3,7 @@ import { resetDb, disconnectDb } from '../helpers/db';
 import { createFaculty, createStudent } from '../helpers/factories';
 import { upsertEntry } from '@/lib/routine/service';
 import { createBooking } from '@/lib/booking/service';
-import { ensureOccurrences, BOOKING_WINDOW_DAYS } from '@/lib/booking/occurrences';
+import { ensureOccurrences, readWithOccurrences, BOOKING_WINDOW_DAYS } from '@/lib/booking/occurrences';
 import { dhakaTomorrow, dhakaWeekdayOf } from '@/lib/timezone';
 import { prisma } from '@/lib/db/prisma';
 import { addDays } from 'date-fns';
@@ -96,5 +96,27 @@ describe('ensureOccurrences — near-term only, no early/far-future booking (§4
 
     const stillExists = await prisma.consultationOccurrence.findUnique({ where: { id: farFuture.id } });
     expect(stillExists).not.toBeNull();
+  });
+});
+
+describe('readWithOccurrences — reads alongside materialization', () => {
+  it('includes rows created by the same call (re-reads only when something was created)', async () => {
+    const faculty = await createFaculty();
+    const day = dhakaWeekdayOf(addDays(dhakaTomorrow(), 2));
+    await prisma.routineEntry.create({ data: { facultyId: faculty.id, day: day as never, startSlot: 'T_11_00', type: 'CONSULTATION', capacity: 3 } });
+    let reads = 0;
+    const read = () => {
+      reads += 1;
+      return prisma.consultationOccurrence.findMany({ where: { facultyId: faculty.id } });
+    };
+
+    const first = await readWithOccurrences(faculty.id, undefined, read);
+    expect(first).toHaveLength(1); // created on this call, so the read was repeated
+    expect(reads).toBe(2);
+
+    reads = 0;
+    const second = await readWithOccurrences(faculty.id, undefined, read);
+    expect(second).toHaveLength(1); // nothing new: the single parallel read is used
+    expect(reads).toBe(1);
   });
 });

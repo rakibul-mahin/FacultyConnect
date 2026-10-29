@@ -88,30 +88,129 @@ function normalizePrismaError(err: unknown) {
   return err;
 }
 
+/** Students must be told why; an empty slot can be cancelled without a reason. */
+function requireReasonIfBooked(confirmedCount: number, reason?: string) {
+  const trimmed = reason?.trim() || null;
+  if (confirmedCount > 0 && !trimmed) throw BookingErrors.reasonRequired();
+  return trimmed;
+}
+
 export async function cancelOccurrence(facultyId: string, occurrenceId: string, reason?: string) {
   const occurrence = await prisma.consultationOccurrence.findUnique({
     where: { id: occurrenceId },
-    include: { bookings: { where: { status: 'CONFIRMED' }, select: { id: true } } },
+    include: { faculty: true, bookings: { where: { status: 'CONFIRMED' }, select: { id: true, studentId: true } } },
   });
   if (!occurrence) throw BookingErrors.notFound();
   if (occurrence.facultyId !== facultyId) throw BookingErrors.forbidden();
+  const cancelReason = requireReasonIfBooked(occurrence.bookings.length, reason);
 
-  await prisma.consultationOccurrence.update({
-    where: { id: occurrenceId },
-    data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: reason ?? null },
+  await prisma.$transaction([
+    prisma.consultationOccurrence.update({
+      where: { id: occurrenceId },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason },
+    }),
+    prisma.notification.createMany({ data: slotCancelledNotifications(occurrence, cancelReason) }),
+  ]);
+  notify({
+    type: 'OCCURRENCE_CANCELLED',
+    occurrenceId,
+    cancelledBookingIds: occurrence.bookings.map((b) => b.id),
+    reason: cancelReason,
   });
-  notify({ type: 'OCCURRENCE_CANCELLED', occurrenceId, cancelledBookingIds: occurrence.bookings.map((b) => b.id) });
 }
 
 export async function cancelDay(facultyId: string, date: Date, reason?: string) {
   const occurrences = await prisma.consultationOccurrence.findMany({
     where: { facultyId, date, status: 'OPEN' },
+    include: { faculty: true, bookings: { where: { status: 'CONFIRMED' }, select: { id: true, studentId: true } } },
   });
-  await prisma.consultationOccurrence.updateMany({
-    where: { id: { in: occurrences.map((o) => o.id) } },
-    data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: reason ?? null },
-  });
+  const cancelReason = requireReasonIfBooked(
+    occurrences.reduce((sum, o) => sum + o.bookings.length, 0),
+    reason
+  );
+  await prisma.$transaction([
+    prisma.consultationOccurrence.updateMany({
+      where: { id: { in: occurrences.map((o) => o.id) } },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason },
+    }),
+    prisma.notification.createMany({ data: occurrences.flatMap((o) => slotCancelledNotifications(o, cancelReason)) }),
+  ]);
+  for (const occurrence of occurrences) {
+    notify({
+      type: 'OCCURRENCE_CANCELLED',
+      occurrenceId: occurrence.id,
+      cancelledBookingIds: occurrence.bookings.map((b) => b.id),
+      reason: cancelReason,
+    });
+  }
   return occurrences.length;
+}
+
+/**
+ * Faculty removes one student from an upcoming slot, freeing the seat. Like
+ * every cancellation this is a soft status change, never a delete; the
+ * reason is kept on the booking and sent to the student.
+ */
+export async function cancelBookingByFaculty(facultyId: string, bookingId: string, reason: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { occurrence: { include: { faculty: true } } },
+  });
+  if (!booking) throw BookingErrors.notFound();
+  if (booking.occurrence.facultyId !== facultyId) throw BookingErrors.forbidden();
+  if (booking.status !== 'CONFIRMED') throw BookingErrors.alreadyCancelled();
+  if (booking.occurrence.date.getTime() < dhakaToday().getTime()) throw BookingErrors.pastCannotCancel();
+  const cancelReason = requireReasonIfBooked(1, reason)!;
+  const { occurrence } = booking;
+
+  await prisma.$transaction([
+    prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'CANCELLED_BY_FACULTY', cancelledAt: new Date(), cancelReason },
+    }),
+    prisma.notification.create({
+      data: {
+        studentId: booking.studentId,
+        type: 'BOOKING_REMOVED',
+        occurrenceId: occurrence.id,
+        facultyName: occurrence.faculty.fullName,
+        facultyPublicId: occurrence.faculty.publicId,
+        date: occurrence.date,
+        startSlot: occurrence.startSlot,
+        reason: cancelReason,
+      },
+    }),
+  ]);
+  notify({
+    type: 'BOOKING_CANCELLED_BY_FACULTY',
+    occurrenceId: booking.occurrenceId,
+    studentId: booking.studentId,
+    bookingId,
+    reason: cancelReason,
+  });
+}
+
+/** One notification per student still booked on a slot that is being cancelled. */
+function slotCancelledNotifications(
+  occurrence: {
+    id: string;
+    date: Date;
+    startSlot: Prisma.NotificationCreateManyInput['startSlot'];
+    faculty: { fullName: string; publicId: string };
+    bookings: { studentId: string }[];
+  },
+  reason: string | null
+): Prisma.NotificationCreateManyInput[] {
+  return occurrence.bookings.map((b) => ({
+    studentId: b.studentId,
+    type: 'OCCURRENCE_CANCELLED',
+    occurrenceId: occurrence.id,
+    facultyName: occurrence.faculty.fullName,
+    facultyPublicId: occurrence.faculty.publicId,
+    date: occurrence.date,
+    startSlot: occurrence.startSlot,
+    reason,
+  }));
 }
 
 /**

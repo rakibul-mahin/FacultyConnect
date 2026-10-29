@@ -4,6 +4,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Load nested `include`s with SQL joins (one statement) instead of one
+  // query per relation level: each extra statement is a full round trip to
+  // the hosted database, which dominated page load times.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -37,15 +41,19 @@ model User {
 }
 
 model FacultyProfile {
-  id        String   @id @default(uuid())
-  publicId  String   @unique @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  publicId String @unique @default(uuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  fullName  String
-  email     String   @unique
-  initial   String
-  seat      String
+  fullName String
+  email    String @unique
+  initial  String
+  seat     String
+
+  // QR poster customisation (theme, header, text, toggles). Shape is
+  // validated in lib/qr/poster-style.ts; null means the default design.
+  posterStyle Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -61,18 +69,19 @@ model FacultyProfile {
 }
 
 model StudentProfile {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  studentId String?  @unique
+  studentId String? @unique
   fullName  String
-  email     String   @unique
+  email     String  @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookings Booking[]
+  bookings      Booking[]
+  notifications Notification[]
 
   @@index([email])
   @@index([studentId])
@@ -113,13 +122,13 @@ enum RoutineEntryType {
 }
 
 model RoutineEntry {
-  id         String           @id @default(uuid())
-  facultyId  String
-  faculty    FacultyProfile   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  id        String         @id @default(uuid())
+  facultyId String
+  faculty   FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
-  day        Weekday
-  startSlot  TimeSlot
-  type       RoutineEntryType
+  day       Weekday
+  startSlot TimeSlot
+  type      RoutineEntryType
 
   // THEORY + LAB
   courseCode String?
@@ -127,15 +136,15 @@ model RoutineEntry {
   roomNumber String?
 
   // LAB only — co-faculty initial(s), e.g. "ITSSC, RKBM"
-  coFaculty  String?
+  coFaculty String?
 
   // LAB continuation bookkeeping (§17-18): a lab spans two RoutineEntry rows
   // sharing labGroupId; isLabContinuation marks the second (auto-occupied) slot.
-  labGroupId       String?
+  labGroupId        String?
   isLabContinuation Boolean @default(false)
 
   // CONSULTATION only
-  capacity   Int?
+  capacity Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -158,19 +167,19 @@ enum OccurrenceStatus {
 }
 
 model ConsultationOccurrence {
-  id             String           @id @default(uuid())
+  id             String         @id @default(uuid())
   routineEntryId String
-  routineEntry   RoutineEntry     @relation(fields: [routineEntryId], references: [id], onDelete: Cascade)
+  routineEntry   RoutineEntry   @relation(fields: [routineEntryId], references: [id], onDelete: Cascade)
   facultyId      String
-  faculty        FacultyProfile   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  faculty        FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
   date      DateTime // calendar date at Asia/Dhaka midnight (date-only precision)
   startSlot TimeSlot
   capacity  Int
   status    OccurrenceStatus @default(OPEN)
 
-  cancelledAt     DateTime?
-  cancelReason    String?
+  cancelledAt  DateTime?
+  cancelReason String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -206,8 +215,8 @@ model Booking {
   studentId    String
   student      StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  type      BookingType
-  status    BookingStatus @default(CONFIRMED)
+  type   BookingType
+  status BookingStatus @default(CONFIRMED)
 
   // THESIS_INTERNSHIP_PROJECT
   groupId    String?
@@ -217,7 +226,10 @@ model Booking {
   // COURSE + OTHERS (+ optional free text for thesis)
   reason     String?
 
-  cancelledAt DateTime?
+  cancelledAt  DateTime?
+  // Faculty's note when they remove this one student (CANCELLED_BY_FACULTY).
+  // Whole-slot cancellations keep theirs on ConsultationOccurrence.cancelReason.
+  cancelReason String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -236,12 +248,12 @@ enum AttendanceStatus {
 }
 
 model Attendance {
-  id        String           @id @default(uuid())
-  bookingId String           @unique
-  booking   Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  status    AttendanceStatus
-  markedAt  DateTime         @default(now())
+  status   AttendanceStatus
+  markedAt DateTime         @default(now())
 
   @@map("attendance")
 }
@@ -251,16 +263,48 @@ model Attendance {
 // ---------------------------------------------------------------------------
 
 model QrToken {
-  id         String         @id @default(uuid())
-  facultyId  String
-  faculty    FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  id        String         @id @default(uuid())
+  facultyId String
+  faculty   FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
-  token      String         @unique @default(uuid())
-  revokedAt  DateTime?
+  token     String    @unique @default(uuid())
+  revokedAt DateTime?
 
   createdAt DateTime @default(now())
 
   @@index([token])
   @@index([facultyId])
   @@map("qr_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Student notifications
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  OCCURRENCE_CANCELLED // faculty cancelled the whole slot (or day)
+  BOOKING_REMOVED // faculty removed this one student
+}
+
+// A snapshot of what happened, not a live join: it stays readable even if
+// the faculty later edits or clears the routine that held the slot.
+model Notification {
+  id        String         @id @default(uuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type            NotificationType
+  occurrenceId    String
+  facultyName     String
+  facultyPublicId String
+  date            DateTime
+  startSlot       TimeSlot
+  reason          String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([studentId, readAt])
+  @@index([studentId, createdAt])
+  @@map("notifications")
 }

@@ -3,6 +3,8 @@ import { requireFacultyPage } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
+import { dhakaToday, dhakaWeekdayOf } from '@/lib/timezone';
+import { FadeIn } from '@/components/motion/fade-in';
 import { RoutineEditor } from '@/components/routine/routine-editor';
 import { ClearRoutineButton } from '@/components/routine/clear-routine-button';
 
@@ -12,10 +14,10 @@ export default async function FacultyRoutinePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <FadeIn className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Weekly routine</h1>
-          <p className="text-sm text-muted-foreground">Click any slot to add theory, a lab, or a consultation.</p>
+          <p className="text-sm text-muted-foreground">Click any slot to add a theory class, a lab or consultation hours.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ClearRoutineButton entryCount={entries.length} />
@@ -26,9 +28,10 @@ export default async function FacultyRoutinePage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </FadeIn>
 
       <RoutineEditor
+        todayDay={dhakaWeekdayOf(dhakaToday())}
         initialEntries={entries.map((e) => ({
           id: e.id,
           day: e.day,

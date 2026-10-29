@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  CalendarClock,
   LogOut,
   Menu,
   X,
@@ -31,6 +30,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { signOutAction } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
+import { Logo } from '@/components/brand/logo';
+import { NotificationBell, type StudentNotification } from '@/components/student/notification-bell';
 
 export interface NavItem {
   href: string;
@@ -63,11 +64,14 @@ export function AppShell({
   section,
   userLabel,
   userSublabel,
+  notifications,
   children,
 }: {
   section: 'faculty' | 'student';
   userLabel: string;
   userSublabel: string;
+  /** Students only: shows the notification bell. */
+  notifications?: { items: StudentNotification[]; unread: number };
   children: React.ReactNode;
 }) {
   const navItems = NAV_ITEMS[section];
@@ -85,11 +89,13 @@ export function AppShell({
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card px-4 py-6 lg:flex">
         <div className="mb-8 flex items-center justify-between px-2">
-          <Link href="/" className="flex items-center gap-2 text-base font-semibold">
-            <CalendarClock className="h-5 w-5 text-primary" />
-            FacultyConnect
+          <Link href="/" aria-label="Consultly home">
+            <Logo markClassName="h-7 w-7" />
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center">
+            {notifications && <NotificationBell {...notifications} />}
+            <ThemeToggle />
+          </div>
         </div>
         <nav className="flex flex-1 flex-col gap-1">
           {navItems.map((item) => (
@@ -101,11 +107,11 @@ export function AppShell({
 
       {/* Mobile top bar */}
       <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur lg:hidden">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-          <CalendarClock className="h-5 w-5 text-primary" />
-          FacultyConnect
+        <Link href="/" aria-label="Consultly home">
+          <Logo markClassName="h-6 w-6" textClassName="text-base" />
         </Link>
         <div className="flex items-center gap-1">
+          {notifications && <NotificationBell {...notifications} />}
           <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
@@ -131,10 +137,7 @@ export function AppShell({
               className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border bg-card px-4 py-6 lg:hidden"
             >
               <div className="mb-8 flex items-center justify-between px-2">
-                <span className="flex items-center gap-2 text-base font-semibold">
-                  <CalendarClock className="h-5 w-5 text-primary" />
-                  FacultyConnect
-                </span>
+                <Logo markClassName="h-7 w-7" />
                 <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label="Close menu">
                   <X className="h-5 w-5" />
                 </Button>
@@ -150,7 +153,7 @@ export function AppShell({
         )}
       </AnimatePresence>
 
-      <main className="flex-1 px-4 pb-16 pt-20 sm:px-6 lg:px-10 lg:pb-10 lg:pt-10">
+      <main className="min-w-0 flex-1 px-4 pb-16 pt-20 sm:px-6 lg:px-10 lg:pb-10 lg:pt-10">
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
     </div>

@@ -19,6 +19,10 @@ export const BookingErrors = {
   concurrentConflict: () =>
     new BookingError('CONFLICT', 'That seat was just taken by someone else. Please try again.'),
   alreadyCancelled: () => new BookingError('ALREADY_CANCELLED', 'This booking is already cancelled.'),
+  reasonRequired: () =>
+    new BookingError('REASON_REQUIRED', 'Please give students a reason for the cancellation.'),
+  alreadyStarted: () =>
+    new BookingError('ALREADY_STARTED', "This consultation has already started and can't be changed."),
   pastCannotCancel: () =>
     new BookingError('PAST_CANNOT_CANCEL', "This consultation has already passed and can't be cancelled."),
 };

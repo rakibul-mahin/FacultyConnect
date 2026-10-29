@@ -1,21 +1,20 @@
 import { HeaderSkeleton } from '@/components/skeletons/page-skeletons';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent } from '@/components/ui/card';
 
 export default function QrLoading() {
   return (
     <div className="space-y-6">
       <HeaderSkeleton />
-      <Card className="max-w-md">
-        <CardContent className="flex flex-col items-center gap-5 pt-6">
-          <Skeleton className="h-56 w-56 rounded-xl" />
-          <Skeleton className="h-3 w-48" />
-          <div className="flex w-full gap-2">
-            <Skeleton className="h-10 flex-1" />
-            <Skeleton className="h-10 flex-1" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-3xl border border-border bg-muted/40 px-4 py-8 sm:px-8">
+          <Skeleton className="mx-auto h-[640px] w-full max-w-[420px] rounded-3xl" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-60 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
+          <Skeleton className="h-32 rounded-2xl" />
+        </div>
+      </div>
     </div>
   );
 }

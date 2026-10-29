@@ -6,12 +6,15 @@ import 'server-only';
  * for a $0/month deployment. Booking/routine/attendance logic calls this
  * function at the natural notification points; today it just logs, so a
  * real provider (e.g. a free-tier transactional email API) can be dropped in
- * later without touching any booking/routine/attendance code.
+ * later without touching any booking/routine/attendance code. In-app
+ * notifications for students are stored separately, inside the same
+ * transaction as the cancellation (lib/booking/service.ts).
  */
 export type NotificationEvent =
   | { type: 'BOOKING_CREATED'; occurrenceId: string; studentId: string }
   | { type: 'BOOKING_CANCELLED_BY_STUDENT'; occurrenceId: string; studentId: string; bookingId: string }
-  | { type: 'OCCURRENCE_CANCELLED'; occurrenceId: string; cancelledBookingIds: string[] }
+  | { type: 'BOOKING_CANCELLED_BY_FACULTY'; occurrenceId: string; studentId: string; bookingId: string; reason: string }
+  | { type: 'OCCURRENCE_CANCELLED'; occurrenceId: string; cancelledBookingIds: string[]; reason: string | null }
   | { type: 'ATTENDANCE_MARKED'; bookingId: string; status: 'PRESENT' | 'ABSENT' };
 
 export function notify(event: NotificationEvent) {

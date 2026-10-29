@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma';
 /** Truncates all app tables between tests so each test starts from a clean slate. */
 export async function resetDb() {
   await prisma.$transaction([
+    prisma.notification.deleteMany(),
     prisma.attendance.deleteMany(),
     prisma.booking.deleteMany(),
     prisma.consultationOccurrence.deleteMany(),

@@ -65,3 +65,8 @@ export const cancelDaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   reason: z.string().trim().max(500).optional(),
 });
+
+export const removeStudentSchema = z.object({
+  bookingId: z.string().uuid(),
+  reason: z.string().trim().min(1, 'A reason is required').max(500),
+});

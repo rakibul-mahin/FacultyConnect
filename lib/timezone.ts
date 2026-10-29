@@ -75,3 +75,9 @@ export function dhakaWeekdayOf(date: Date): string {
 }
 
 export { parseISO };
+
+/** Whether a slot on a stored calendar date has begun (Asia/Dhaka wall-clock). */
+export function hasSlotStarted(date: Date, startTime24h: string, now = new Date()): boolean {
+  const startsAt = fromZonedTime(`${toDateKey(date)}T${startTime24h}:00`, APP_TIMEZONE);
+  return startsAt.getTime() <= now.getTime();
+}

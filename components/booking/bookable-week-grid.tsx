@@ -8,7 +8,6 @@ import { EntryLegend } from '@/components/routine/entry-legend';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BookingDialog } from '@/components/booking/booking-dialog';
 import { cn } from '@/lib/utils';
 import { CalendarDays } from 'lucide-react';
 import type { OccurrenceForBooking } from '@/components/booking/types';
@@ -19,27 +18,24 @@ interface RoutineEntryLike extends EntryLike {
 }
 
 /**
- * The single booking surface for students (§34-35, §67): the official
- * weekly grid itself is interactive — a consultation cell shows the nearest
- * upcoming date's booked/capacity count and opens a date picker + booking
- * dialog right there, instead of a separate list further down the page.
- * Below lg, nine columns never fit (§47): a day selector + vertical list
- * replaces the table.
+ * The faculty's full weekly routine (§34-35, §67). A consultation cell shows
+ * the nearest upcoming date's booked/capacity count; picking a date hands
+ * off to the booking flow via `onPick`. Below lg, nine columns never fit
+ * (§47): a day selector + vertical list replaces the table.
  */
 export function BookableWeekGrid({
   entries,
   occurrences,
-  facultyName,
   canBook,
   profileIncomplete,
+  onPick,
 }: {
   entries: RoutineEntryLike[];
   occurrences: OccurrenceForBooking[];
-  facultyName: string;
   canBook: boolean;
   profileIncomplete: boolean;
+  onPick: (occ: OccurrenceForBooking) => void;
 }) {
-  const [target, setTarget] = useState<OccurrenceForBooking | null>(null);
   const [mobileDay, setMobileDay] = useState<WeekdayValue>(() => dhakaWeekdayOf(dhakaToday()) as WeekdayValue);
 
   const entryGrid: Record<string, Record<string, RoutineEntryLike | undefined>> = {};
@@ -91,7 +87,7 @@ export function BookableWeekGrid({
                           occurrences={slotOccurrences}
                           canBook={canBook}
                           profileIncomplete={profileIncomplete}
-                          onBook={setTarget}
+                          onBook={onPick}
                         />
                       </td>
                     );
@@ -137,7 +133,7 @@ export function BookableWeekGrid({
                       occurrences={occurrencesBySlot.get(`${mobileDay}-${slot}`) ?? []}
                       canBook={canBook}
                       profileIncomplete={profileIncomplete}
-                      onBook={setTarget}
+                      onBook={onPick}
                     />
                   ) : entry ? (
                     <EntryBadge entry={entry} compact />
@@ -150,17 +146,6 @@ export function BookableWeekGrid({
           })}
         </div>
       </div>
-
-      {target && (
-        <BookingDialog
-          open={Boolean(target)}
-          onOpenChange={(open) => !open && setTarget(null)}
-          occurrenceId={target.id}
-          date={target.date}
-          startSlot={target.startSlot}
-          facultyName={facultyName}
-        />
-      )}
     </div>
   );
 }
