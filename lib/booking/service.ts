@@ -65,7 +65,7 @@ export async function createBooking(studentId: string, input: BookingInput) {
   for (let i = 0; i <= MAX_SERIALIZATION_RETRIES; i++) {
     try {
       const booking = await attempt();
-      notify({ type: 'BOOKING_CREATED', occurrenceId: input.occurrenceId, studentId });
+      await notify({ type: 'BOOKING_CREATED', occurrenceId: input.occurrenceId, studentId });
       return booking;
     } catch (err) {
       const isSerializationConflict = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';
@@ -111,11 +111,12 @@ export async function cancelOccurrence(facultyId: string, occurrenceId: string, 
     }),
     prisma.notification.createMany({ data: slotCancelledNotifications(occurrence, cancelReason) }),
   ]);
-  notify({
+  await notify({
     type: 'OCCURRENCE_CANCELLED',
     occurrenceId,
     cancelledBookingIds: occurrence.bookings.map((b) => b.id),
     reason: cancelReason,
+    scope: 'slot',
   });
 }
 
@@ -135,14 +136,17 @@ export async function cancelDay(facultyId: string, date: Date, reason?: string) 
     }),
     prisma.notification.createMany({ data: occurrences.flatMap((o) => slotCancelledNotifications(o, cancelReason)) }),
   ]);
-  for (const occurrence of occurrences) {
-    notify({
-      type: 'OCCURRENCE_CANCELLED',
-      occurrenceId: occurrence.id,
-      cancelledBookingIds: occurrence.bookings.map((b) => b.id),
-      reason: cancelReason,
-    });
-  }
+  await Promise.all(
+    occurrences.map((occurrence) =>
+      notify({
+        type: 'OCCURRENCE_CANCELLED',
+        occurrenceId: occurrence.id,
+        cancelledBookingIds: occurrence.bookings.map((b) => b.id),
+        reason: cancelReason,
+        scope: 'day',
+      })
+    )
+  );
   return occurrences.length;
 }
 
@@ -181,7 +185,7 @@ export async function cancelBookingByFaculty(facultyId: string, bookingId: strin
       },
     }),
   ]);
-  notify({
+  await notify({
     type: 'BOOKING_CANCELLED_BY_FACULTY',
     occurrenceId: booking.occurrenceId,
     studentId: booking.studentId,
@@ -239,7 +243,7 @@ export async function cancelBookingByStudent(studentId: string, bookingId: strin
     where: { id: bookingId },
     data: { status: 'CANCELLED_BY_STUDENT', cancelledAt: new Date() },
   });
-  notify({ type: 'BOOKING_CANCELLED_BY_STUDENT', occurrenceId: booking.occurrenceId, studentId, bookingId });
+  await notify({ type: 'BOOKING_CANCELLED_BY_STUDENT', occurrenceId: booking.occurrenceId, studentId, bookingId });
 }
 
 export async function markAttendance(facultyId: string, bookingId: string, status: 'PRESENT' | 'ABSENT') {
@@ -255,5 +259,5 @@ export async function markAttendance(facultyId: string, bookingId: string, statu
     update: { status, markedAt: new Date() },
     create: { bookingId, status },
   });
-  notify({ type: 'ATTENDANCE_MARKED', bookingId, status });
+  await notify({ type: 'ATTENDANCE_MARKED', bookingId, status });
 }

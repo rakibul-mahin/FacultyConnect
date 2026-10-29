@@ -187,12 +187,16 @@ browser clipboard contains TSV (`\t` between columns, `\n` between rows). `lib/p
 | `AUTH_SECRET` | NextAuth session/JWT signing secret | No |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth app credentials | No |
 | `NEXTAUTH_URL` | Canonical app URL for OAuth callbacks | No |
-| `NEXT_PUBLIC_APP_URL` | Base URL used client-side for QR deep links | Yes |
+| `NEXT_PUBLIC_APP_URL` | Base URL used client-side for QR deep links and in email links | Yes |
+| `RESEND_API_KEY` | Resend key for booking/cancellation emails; unset = emails printed locally, not sent | No |
+| `EMAIL_FROM` | Optional sender, default `Consultly <consultly@redefyn.dev>` | No |
 
 ## 13. What Is Intentionally Not Built
 
 Per §68/§55/§54: no admin role, no chat/messaging, no payments, no AI, no email delivery, no
 Redis/queues, no external calendar sync, no paid cron. Students get in-app notifications (the
 `notifications` table, written in the same transaction as a faculty cancellation and shown in the
-student bell and dashboard); `lib/notify.ts` stays the single extension point where email could be
-bolted on later without touching booking/routine logic.
+student bell and dashboard). Emails go out through `lib/notify.ts` → `lib/email` (Resend's HTTP API):
+a booking emails the student and the faculty member; a student cancelling emails the faculty member;
+a faculty removal or slot/day cancellation emails the affected students. Sending happens after the
+change is saved and never fails or undoes it.
